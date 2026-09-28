@@ -1,0 +1,38 @@
+name: distributed-demo
+
+x-node: &node
+  build: .
+  init: true
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    interval: 2s
+    timeout: 2s
+    retries: 3
+    start_period: 5s
+
+services:
+  node1:
+    <<: *node
+    environment:
+      NODE_NAME: node1
+  node2:
+    <<: *node
+    environment:
+      NODE_NAME: node2
+  node3:
+    <<: *node
+    environment:
+      NODE_NAME: node3
+  load-balancer:
+    image: haproxy:3.2-alpine
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      node1:
+        condition: service_healthy
+      node2:
+        condition: service_healthy
+      node3:
+        condition: service_healthy
